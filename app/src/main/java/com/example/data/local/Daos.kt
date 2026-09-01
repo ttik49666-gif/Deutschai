@@ -58,11 +58,28 @@ interface VocabularyDao {
     @Query("SELECT * FROM vocabulary WHERE masteryScore < 60 OR mistakeCount > 0 ORDER BY masteryScore ASC")
     fun getWeakVocabulary(): Flow<List<VocabularyItem>>
 
+    @Query("SELECT * FROM vocabulary WHERE nextReview <= :now ORDER BY nextReview ASC")
+    fun getDueVocabulary(now: Long = System.currentTimeMillis()): Flow<List<VocabularyItem>>
+
+    @Query("SELECT * FROM vocabulary WHERE nextReview <= :now ORDER BY nextReview ASC")
+    suspend fun getDueVocabularyOnce(now: Long = System.currentTimeMillis()): List<VocabularyItem>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVocabulary(items: List<VocabularyItem>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateWord(item: VocabularyItem)
+
+    @Query("UPDATE vocabulary SET masteryScore = :score, repetition = :repetition, intervalDays = :intervalDays, easeFactor = :easeFactor, nextReview = :nextReview, lastReviewed = :lastReviewed WHERE id = :id")
+    suspend fun updateSrsProgress(
+        id: String,
+        score: Int,
+        repetition: Int,
+        intervalDays: Int,
+        easeFactor: Float,
+        nextReview: Long,
+        lastReviewed: Long
+    )
 
     @Query("UPDATE vocabulary SET masteryScore = :score, lastReviewed = :time WHERE id = :id")
     suspend fun updateMastery(id: String, score: Int, time: Long = System.currentTimeMillis())

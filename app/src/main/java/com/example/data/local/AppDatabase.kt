@@ -27,10 +27,10 @@ import kotlinx.coroutines.launch
         RoleplayScenario::class,
         ChatMessage::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
-@TypeConverters(StringListConverter::class)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -52,6 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "deutsch_ai_database"
                 )
+                .fallbackToDestructiveMigration()
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

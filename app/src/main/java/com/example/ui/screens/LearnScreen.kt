@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,17 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,7 +31,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -48,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,13 +50,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.GrammarTopic
 import com.example.data.model.Lesson
+import com.example.data.model.TargetDialect
 import com.example.data.model.VocabularyItem
 import com.example.ui.components.CEFRBadge
 import com.example.ui.components.GenderArticleChip
@@ -91,13 +86,14 @@ fun LearnScreen(
 ) {
     val activeLab by viewModel.activeLabMode.collectAsState()
     val labTabs = listOf(
-        LearnLabMode.CURRICULUM to "Curriculum",
-        LearnLabMode.VOCABULARY to "Vocabulary",
-        LearnLabMode.GRAMMAR to "Grammar Lab",
-        LearnLabMode.LISTENING to "Listening Lab",
-        LearnLabMode.SHADOWING to "Shadowing",
-        LearnLabMode.WRITING to "Writing Lab",
-        LearnLabMode.EXAM_CENTER to "Exam Center"
+        LearnLabMode.ZERO_BASICS to "🌱 A1.1 Basics / من الصفر",
+        LearnLabMode.CURRICULUM to "Curriculum / المنهج",
+        LearnLabMode.VOCABULARY to "SRS Flashcards / الحفظ الذكي",
+        LearnLabMode.GRAMMAR to "Grammar Lab / القواعد",
+        LearnLabMode.LISTENING to "Listening / الاستماع",
+        LearnLabMode.SHADOWING to "Shadowing / النطق",
+        LearnLabMode.WRITING to "Writing Lab / الكتابة",
+        LearnLabMode.EXAM_CENTER to "Exam Center / الامتحانات"
     )
 
     Column(
@@ -144,8 +140,9 @@ fun LearnScreen(
         // Lab Content Area
         Box(modifier = Modifier.fillMaxSize()) {
             when (activeLab) {
+                LearnLabMode.ZERO_BASICS -> ZeroBasicsView(viewModel)
                 LearnLabMode.CURRICULUM -> CurriculumView(viewModel)
-                LearnLabMode.VOCABULARY -> VocabularyLabView(viewModel)
+                LearnLabMode.VOCABULARY, LearnLabMode.SRS_REVIEW -> VocabularyLabView(viewModel)
                 LearnLabMode.GRAMMAR -> GrammarLabView(viewModel)
                 LearnLabMode.LISTENING -> ListeningLabView(viewModel)
                 LearnLabMode.SHADOWING -> ShadowingLabView(viewModel)
@@ -163,7 +160,7 @@ fun CurriculumView(viewModel: MainViewModel) {
     var selectedLevelFilter by remember { mutableStateOf("ALL") }
     val levels = listOf("ALL", "A1", "A2", "B1", "B2", "C1")
 
-    val filtered = if (selectedLevelFilter == "ALL") lessons else lessons.filter { it.cefrLevel == selectedLevelFilter }
+    val filtered = if (selectedLevelFilter == "ALL") lessons else lessons.filter { it.cefrLevel == selectedLevelFilter || (selectedLevelFilter == "A1" && it.cefrLevel.startsWith("A1")) }
 
     LazyColumn(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 100.dp),
@@ -211,7 +208,7 @@ fun CurriculumView(viewModel: MainViewModel) {
                             CEFRBadge(level = lesson.cefrLevel)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Module ${lesson.moduleNumber}: ${lesson.moduleTitle}",
+                                text = "Modul ${lesson.moduleNumber}: ${lesson.moduleTitleAr.ifBlank { lesson.moduleTitle }}",
                                 color = Slate400,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
@@ -233,10 +230,18 @@ fun CurriculumView(viewModel: MainViewModel) {
                         fontWeight = FontWeight.Bold
                     )
 
+                    if (lesson.lessonTitleAr.isNotBlank()) {
+                        Text(
+                            text = lesson.lessonTitleAr,
+                            color = GermanGold,
+                            fontSize = 13.sp
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = lesson.description,
+                        text = if (lesson.descriptionAr.isNotBlank()) lesson.descriptionAr else lesson.description,
                         color = Slate300,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
@@ -257,7 +262,11 @@ fun CurriculumView(viewModel: MainViewModel) {
 
                         Button(
                             onClick = {
-                                viewModel.completeLesson(lesson.id)
+                                if (lesson.id == "l_a1_0") {
+                                    viewModel.startZeroBasics()
+                                } else {
+                                    viewModel.completeLesson(lesson.id)
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (lesson.isCompleted) Slate800 else GermanGold
@@ -265,7 +274,7 @@ fun CurriculumView(viewModel: MainViewModel) {
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
-                                text = if (lesson.isCompleted) "Review" else "Start Lesson",
+                                text = if (lesson.isCompleted) "Wiederholen (مراجعة)" else "Lektion starten (ابدأ)",
                                 color = if (lesson.isCompleted) Slate100 else GermanBlack,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
@@ -278,11 +287,12 @@ fun CurriculumView(viewModel: MainViewModel) {
     }
 }
 
-// 2. VOCABULARY INTELLIGENCE & FLASHCARDS
+// 2. SM-2 SPACED REPETITION FLASHCARDS
 @Composable
 fun VocabularyLabView(viewModel: MainViewModel) {
     val vocabulary by viewModel.allVocabulary.collectAsState()
-    var currentIndex by remember { mutableStateOf(0) }
+    val userProfile by viewModel.userProfile.collectAsState()
+    var currentIndex by remember { mutableIntStateOf(0) }
     var isFlipped by remember { mutableStateOf(false) }
 
     if (vocabulary.isEmpty()) return
@@ -298,18 +308,25 @@ fun VocabularyLabView(viewModel: MainViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Column {
+                    Text(
+                        text = "SM-2 SPACED REPETITION FLASHCARDS",
+                        color = AIElectricCyan,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = "نظام التكرار المتباعد الذكي لتثبيت المفردات",
+                        color = Slate400,
+                        fontSize = 11.sp
+                    )
+                }
                 Text(
-                    text = "SPACED REPETITION FLASHCARDS",
-                    color = AIElectricCyan,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
-                )
-                Text(
-                    text = "${currentIndex + 1} / ${vocabulary.size}",
-                    color = Slate400,
+                    text = "${(currentIndex % vocabulary.size) + 1} / ${vocabulary.size}",
+                    color = GermanGold,
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -319,12 +336,12 @@ fun VocabularyLabView(viewModel: MainViewModel) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
+                    .height(280.dp)
                     .clickable { isFlipped = !isFlipped },
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Slate900),
                 border = CardDefaults.outlinedCardBorder().copy(
-                    brush = Brush.linearGradient(listOf(GermanGold.copy(alpha = 0.4f), Slate700))
+                    brush = Brush.linearGradient(listOf(GermanGold.copy(alpha = 0.5f), AIElectricCyan.copy(alpha = 0.3f)))
                 )
             ) {
                 Box(
@@ -376,16 +393,26 @@ fun VocabularyLabView(viewModel: MainViewModel) {
                                     Icon(Icons.Default.VolumeUp, contentDescription = "Listen", tint = GermanGold)
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Tap to reveal meaning & sentence", color = Slate400, fontSize = 12.sp)
+                                Text("المس البطاقة لكشف المعنى العربي والمثال", color = Slate400, fontSize = 12.sp)
                             }
                         } else {
-                            // Back of card: English translation & Example sentence
+                            // Back of card: Arabic meaning & Example sentence
                             Text(
-                                text = currentWord.englishMeaning,
+                                text = currentWord.arabicMeaning,
                                 style = MaterialTheme.typography.headlineMedium,
-                                color = AIElectricCyan,
+                                color = GermanGold,
                                 fontWeight = FontWeight.Bold
                             )
+
+                            if (userProfile?.targetDialect == TargetDialect.DARIJA && !currentWord.darijaMeaning.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "بالدارجة: ${currentWord.darijaMeaning}",
+                                    color = AIElectricCyan,
+                                    fontSize = 13.sp
+                                )
+                            }
+
                             Spacer(modifier = Modifier.height(14.dp))
                             Box(
                                 modifier = Modifier
@@ -403,8 +430,8 @@ fun VocabularyLabView(viewModel: MainViewModel) {
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = currentWord.exampleEn,
-                                        color = Slate400,
+                                        text = currentWord.exampleAr.ifBlank { currentWord.exampleEn },
+                                        color = Slate300,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -415,36 +442,80 @@ fun VocabularyLabView(viewModel: MainViewModel) {
             }
         }
 
-        // Active Recall Actions
+        // SM-2 Recall Quality Buttons (4 levels: 1 = Again, 3 = Hard, 4 = Good, 5 = Easy)
         item {
+            Text("تقييم تذكر الكلمة (خوارزمية SM-2):", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Again (Quality 1)
                 Button(
                     onClick = {
-                        viewModel.updateWordMastery(currentWord.id, -10)
+                        viewModel.reviewVocabularySrs(currentWord, 1)
                         isFlipped = false
-                        currentIndex = (currentIndex + 1) % vocabulary.size
+                        currentIndex++
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Slate800),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("🔄 Review Again", color = ErrorRose, fontWeight = FontWeight.Bold)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🔄 ثانية", color = ErrorRose, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("<10m", color = Slate400, fontSize = 10.sp)
+                    }
                 }
 
+                // Hard (Quality 3)
                 Button(
                     onClick = {
-                        viewModel.updateWordMastery(currentWord.id, 15)
+                        viewModel.reviewVocabularySrs(currentWord, 3)
                         isFlipped = false
-                        currentIndex = (currentIndex + 1) % vocabulary.size
+                        currentIndex++
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Slate800),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("صعب", color = GermanGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("1d", color = Slate400, fontSize = 10.sp)
+                    }
+                }
+
+                // Good (Quality 4)
+                Button(
+                    onClick = {
+                        viewModel.reviewVocabularySrs(currentWord, 4)
+                        isFlipped = false
+                        currentIndex++
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Slate800),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("جيد", color = AIElectricCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("3d", color = Slate400, fontSize = 10.sp)
+                    }
+                }
+
+                // Easy (Quality 5)
+                Button(
+                    onClick = {
+                        viewModel.reviewVocabularySrs(currentWord, 5)
+                        isFlipped = false
+                        currentIndex++
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = GermanGold),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("✅ I Know This", color = GermanBlack, fontWeight = FontWeight.Bold)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("سهل", color = GermanBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("6d", color = GermanBlack.copy(alpha = 0.7f), fontSize = 10.sp)
+                    }
                 }
             }
         }
@@ -462,7 +533,7 @@ fun GrammarLabView(viewModel: MainViewModel) {
     ) {
         item {
             Text(
-                text = "INTERACTIVE GRAMMAR ENGINE",
+                text = "INTERACTIVE GRAMMAR ENGINE & RULES",
                 color = GermanGold,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -498,7 +569,7 @@ fun GrammarLabView(viewModel: MainViewModel) {
                                     .background(GermanCrimson.copy(alpha = 0.2f))
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
-                                Text("Weak Area (${topic.masteryScore}%)", color = GermanCrimson, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("منطقة ضعف (${topic.masteryScore}%)", color = GermanCrimson, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -512,10 +583,18 @@ fun GrammarLabView(viewModel: MainViewModel) {
                         fontWeight = FontWeight.Bold
                     )
 
+                    if (topic.titleAr.isNotBlank()) {
+                        Text(
+                            text = topic.titleAr,
+                            color = GermanGold,
+                            fontSize = 13.sp
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = topic.explanation,
+                        text = topic.explanationAr.ifBlank { topic.explanation },
                         color = Slate300,
                         fontSize = 13.sp,
                         lineHeight = 19.sp
@@ -533,7 +612,7 @@ fun GrammarLabView(viewModel: MainViewModel) {
                             .padding(12.dp)
                     ) {
                         Column {
-                            Text("RULE FORMULA", color = AIElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("RULE FORMULA / صياغة القاعدة", color = AIElectricCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(topic.formulaRule, color = PureWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
@@ -544,18 +623,18 @@ fun GrammarLabView(viewModel: MainViewModel) {
                     // Right vs Wrong Breakdown
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("✅ Richtig:", color = SuccessEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("✅ Richtig (صحيح):", color = SuccessEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Text(topic.exampleRight, color = PureWhite, fontSize = 13.sp)
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("❌ Falsch:", color = ErrorRose, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("❌ Falsch (خطأ):", color = ErrorRose, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Text(topic.exampleWrong, color = Slate400, fontSize = 13.sp)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "💡 Warum? ${topic.whyWrong}",
+                        text = "💡 لماذا؟ ${topic.whyWrongAr.ifBlank { topic.whyWrong }}",
                         color = Slate300,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
@@ -593,7 +672,7 @@ fun ListeningLabView(viewModel: MainViewModel) {
             GlowingCard(borderColor = AIElectricCyan.copy(alpha = 0.35f)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Listen carefully and type what you hear",
+                        text = "استمع بعناية واكتب ما تسمعه بالألمانية",
                         color = PureWhite,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -613,7 +692,7 @@ fun ListeningLabView(viewModel: MainViewModel) {
                         ) {
                             Icon(Icons.Default.VolumeUp, contentDescription = null, tint = GermanBlack)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (isSlowMode) "Play Slow (0.7x)" else "Play Audio (1.0x)", color = GermanBlack, fontWeight = FontWeight.Bold)
+                            Text(if (isSlowMode) "بطيء (0.7x)" else "تشغيل (1.0x)", color = GermanBlack, fontWeight = FontWeight.Bold)
                         }
 
                         Button(
@@ -621,7 +700,7 @@ fun ListeningLabView(viewModel: MainViewModel) {
                             colors = ButtonDefaults.buttonColors(containerColor = Slate800),
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text(if (isSlowMode) "⚡ Switch to Normal" else "🐢 Switch to Slow", color = Slate100, fontSize = 12.sp)
+                            Text(if (isSlowMode) "⚡ سرعة عادية" else "🐢 وضع التباطؤ", color = Slate100, fontSize = 12.sp)
                         }
                     }
 
@@ -646,21 +725,21 @@ fun ListeningLabView(viewModel: MainViewModel) {
                     Button(
                         onClick = {
                             if (userGuess.trim().equals(sampleListeningText, ignoreCase = true)) {
-                                feedback = "Perfekt! 100% genau verstanden und geschrieben."
+                                feedback = "ممتاز! فهمت وكتبت الجملة بدقة 100%."
                             } else {
-                                feedback = "Fast! Richtig wäre: \"$sampleListeningText\""
+                                feedback = "قريب جداً! الجملة الصحيحة هي: \"$sampleListeningText\""
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = AIElectricCyan),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Check Dictation", color = GermanBlack, fontWeight = FontWeight.Bold)
+                        Text("التحقق من الإملاء", color = GermanBlack, fontWeight = FontWeight.Bold)
                     }
 
                     if (feedback != null) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(feedback!!, color = if (feedback!!.startsWith("Perfekt")) SuccessEmerald else GermanGold, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(feedback!!, color = if (feedback!!.startsWith("ممتاز")) SuccessEmerald else GermanGold, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -694,7 +773,7 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                     letterSpacing = 0.5.sp
                 )
                 Text(
-                    text = "Exercise ${currentIndex + 1} of ${viewModel.shadowingTasks.size}",
+                    text = "تمرين ${currentIndex + 1} من ${viewModel.shadowingTasks.size}",
                     color = Slate400,
                     fontSize = 13.sp
                 )
@@ -717,16 +796,16 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = task.englishMeaning,
-                        color = Slate400,
+                        text = task.arabicMeaning.ifBlank { task.englishMeaning },
+                        color = GermanGold,
                         fontSize = 14.sp
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "💡 Phonetics: ${task.phoneticTip}",
-                        color = GermanGold,
+                        text = "💡 نصيحة النطق: ${task.phoneticTipAr.ifBlank { task.phoneticTip }}",
+                        color = Slate300,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -741,7 +820,7 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                         ) {
                             Icon(Icons.Default.VolumeUp, contentDescription = null, tint = GermanGold)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("1. Listen to Native Model", color = Slate100, fontWeight = FontWeight.SemiBold)
+                            Text("1. استمع للنطق النموذجي", color = Slate100, fontWeight = FontWeight.SemiBold)
                         }
                     }
 
@@ -757,7 +836,6 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                                         viewModel.evaluateUserShadowing(userSpoken)
                                     },
                                     onError = {
-                                        // Fallback evaluation for demo
                                         viewModel.evaluateUserShadowing(task.germanSentence)
                                     }
                                 )
@@ -771,7 +849,7 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                         Icon(Icons.Default.Mic, contentDescription = null, tint = if (isListening) PureWhite else GermanBlack)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isListening) "Listening... Tap to Stop" else "2. Record & Shadow (Repeat)",
+                            text = if (isListening) "جارٍ الاستماع... اضغط للإيقاف" else "2. سجل صوتك وردد الجملة",
                             color = if (isListening) PureWhite else GermanBlack,
                             fontWeight = FontWeight.Bold
                         )
@@ -797,7 +875,7 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("SHADOWING ACCURACY", color = SuccessEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("دقة النطق الفونيتيكي", color = SuccessEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Text("${report!!.accuracyScore}%", color = SuccessEmerald, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
 
@@ -808,15 +886,15 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Rhythm: ${report!!.rhythmScore}%", color = Slate300, fontSize = 13.sp)
+                                Text("الإيقاع: ${report!!.rhythmScore}%", color = Slate300, fontSize = 13.sp)
                             }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Fluency: ${report!!.fluencyScore}%", color = Slate300, fontSize = 13.sp)
+                                Text("الطلاقة: ${report!!.fluencyScore}%", color = Slate300, fontSize = 13.sp)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text(report!!.praiseOrTip, color = PureWhite, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(report!!.praiseOrTipAr.ifBlank { report!!.praiseOrTip }, color = PureWhite, fontSize = 13.sp, fontWeight = FontWeight.Medium)
 
                         Spacer(modifier = Modifier.height(14.dp))
 
@@ -826,7 +904,7 @@ fun ShadowingLabView(viewModel: MainViewModel) {
                             colors = ButtonDefaults.buttonColors(containerColor = Slate800),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Next Shadowing Sentence", color = GermanGold, fontWeight = FontWeight.Bold)
+                            Text("الجملة التالية", color = GermanGold, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -864,7 +942,7 @@ fun WritingLabView(viewModel: MainViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp),
-                placeholder = { Text("Write your German text, email, or essay here...", color = Slate400) },
+                placeholder = { Text("اكتب نصك بالألمانية أو بريدك الإلكتروني هنا...", color = Slate400) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = GermanGold,
                     unfocusedBorderColor = Slate700,
@@ -886,7 +964,7 @@ fun WritingLabView(viewModel: MainViewModel) {
                 if (isEvaluating) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = GermanBlack)
                 } else {
-                    Text("Evaluate My Writing with AI", color = GermanBlack, fontWeight = FontWeight.Bold)
+                    Text("تقييم النص وتحليله بالذكاء الاصطناعي", color = GermanBlack, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -900,20 +978,20 @@ fun WritingLabView(viewModel: MainViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("AI WRITING ASSESSMENT", color = SuccessEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("تقرير تقييم الكتابة المعتمد", color = SuccessEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             CEFRBadge(level = report!!.estimatedCEFR)
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("Grammar: ${report!!.grammarScore}%", color = Slate300, fontSize = 13.sp)
-                            Text("Vocabulary: ${report!!.vocabularyScore}%", color = Slate300, fontSize = 13.sp)
-                            Text("Coherence: ${report!!.coherenceScore}%", color = Slate300, fontSize = 13.sp)
+                            Text("القواعد: ${report!!.grammarScore}%", color = Slate300, fontSize = 13.sp)
+                            Text("المفردات: ${report!!.vocabularyScore}%", color = Slate300, fontSize = 13.sp)
+                            Text("الترابط: ${report!!.coherenceScore}%", color = Slate300, fontSize = 13.sp)
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(report!!.detailedFeedback, color = PureWhite, fontSize = 13.sp)
+                        Text(report!!.detailedFeedbackAr.ifBlank { report!!.detailedFeedback }, color = PureWhite, fontSize = 13.sp)
 
                         Spacer(modifier = Modifier.height(14.dp))
                         Box(
@@ -924,7 +1002,7 @@ fun WritingLabView(viewModel: MainViewModel) {
                                 .padding(12.dp)
                         ) {
                             Column {
-                                Text("NATIVE POLISHED VERSION", color = AIElectricCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("النسخة الألمانية المحسنة (Native German):", color = AIElectricCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(report!!.improvedNativeVersion, color = Slate100, fontSize = 13.sp)
                             }
@@ -973,7 +1051,7 @@ fun ExamCenterView(viewModel: MainViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         CEFRBadge(level = level)
-                        Text("Simulated Exam", color = Slate400, fontSize = 12.sp)
+                        Text("امتحان محاكاة رسمي", color = Slate400, fontSize = 12.sp)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -991,7 +1069,7 @@ fun ExamCenterView(viewModel: MainViewModel) {
                         colors = ButtonDefaults.buttonColors(containerColor = Slate800),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("Start Full Exam Simulation", color = GermanGold, fontWeight = FontWeight.Bold)
+                        Text("بدء محاكاة الاختبار", color = GermanGold, fontWeight = FontWeight.Bold)
                     }
                 }
             }

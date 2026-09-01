@@ -2,45 +2,64 @@ package com.example.ai
 
 import com.example.data.model.ConversationMode
 import com.example.data.model.CorrectionLevel
+import com.example.data.model.TargetDialect
 import com.example.data.model.TutorPersonality
+import com.example.data.model.UserProfile
 
 class TutorOrchestrator(
-    private val geminiService: GeminiService = GeminiService()
+    private val aiProxyRepository: AIProxyRepository = AIProxyRepositoryImpl()
 ) {
 
-    suspend fun getTutorResponse(
+    suspend fun processUserUtterance(
         userText: String,
-        personality: TutorPersonality,
-        correctionLevel: CorrectionLevel,
-        userLevel: String,
+        userProfile: UserProfile,
         mode: ConversationMode,
         scenarioContext: String? = null,
         history: List<Pair<String, String>> = emptyList()
     ): TutorAnalysis {
-        // Try Gemini AI first
-        val geminiResult = geminiService.generateTutorResponse(
+        val request = TutorPromptRequest(
             userInput = userText,
-            personality = personality,
-            correctionLevel = correctionLevel,
-            userLevel = userLevel,
-            mode = mode,
+            personality = userProfile.tutorPersonality,
+            correctionLevel = userProfile.correctionLevel,
+            userLevel = userProfile.currentLevel,
+            dialect = userProfile.targetDialect,
+            modeTitle = mode.title,
             scenarioContext = scenarioContext,
             history = history
         )
+        return aiProxyRepository.generateTutorResponse(request, mode)
+    }
 
-        if (geminiResult != null) {
-            return geminiResult
-        }
+    suspend fun evaluateWritingSubmission(
+        essayText: String,
+        prompt: String,
+        targetCEFR: String
+    ): WritingEvaluationReport {
+        return aiProxyRepository.evaluateWriting(essayText, prompt, targetCEFR)
+    }
 
-        // Resilient, deep local German NLP engine fallback
-        return LocalSmartTutorEngine.analyzeAndRespond(
-            userText = userText,
-            personality = personality,
-            correctionLevel = correctionLevel,
-            userLevel = userLevel,
-            mode = mode,
-            scenarioContext = scenarioContext,
-            history = history
+    suspend fun evaluatePlacementTest(
+        grammarScore: Int,
+        vocabScore: Int,
+        readingScore: Int,
+        listeningScore: Int,
+        speakingScore: Int,
+        writingScore: Int
+    ): PlacementEvaluationResult {
+        return aiProxyRepository.evaluatePlacement(
+            grammarScore = grammarScore,
+            vocabScore = vocabScore,
+            readingScore = readingScore,
+            listeningScore = listeningScore,
+            speakingScore = speakingScore,
+            writingScore = writingScore
         )
+    }
+
+    suspend fun evaluateShadowingAudio(
+        targetSentence: String,
+        userSpokenText: String
+    ): ShadowingAnalysis {
+        return aiProxyRepository.evaluatePronunciation(targetSentence, userSpokenText)
     }
 }

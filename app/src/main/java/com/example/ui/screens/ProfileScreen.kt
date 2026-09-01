@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CorrectionLevel
+import com.example.data.model.TargetDialect
 import com.example.data.model.TutorPersonality
 import com.example.ui.components.CEFRBadge
 import com.example.ui.components.GlowingCard
@@ -96,7 +97,7 @@ fun ProfileScreen(
                             .background(Brush.linearGradient(listOf(GermanGold, AIElectricCyan))),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("A", color = GermanBlack, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text("D", color = GermanBlack, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -114,10 +115,52 @@ fun ProfileScreen(
             }
         }
 
+        // Arabic Dialect Configuration (MSA vs Moroccan Darija)
+        item {
+            Text(
+                text = "ARABIC EXPLANATION & TRANSLATION / لغة التوضيح والترجمة",
+                color = GermanGold,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TargetDialect.values().forEach { dialect ->
+                    val isSelected = user.targetDialect == dialect
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updateTargetDialect(dialect) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (isSelected) Slate850 else Slate900),
+                        border = if (isSelected) CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(GermanGold, AIElectricCyan))) else null
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(dialect.displayName, color = PureWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(dialect.description, color = Slate400, fontSize = 12.sp)
+                            }
+                            if (isSelected) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = GermanGold, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // AI Tutor Personality Selector
         item {
             Text(
-                text = "AI TUTOR PERSONALITY",
+                text = "AI TUTOR PERSONALITY / شخصية المعلم الذكي",
                 color = GermanGold,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -157,7 +200,7 @@ fun ProfileScreen(
         // Correction Intelligence Selector
         item {
             Text(
-                text = "CORRECTION INTELLIGENCE",
+                text = "CORRECTION STRICTNESS / دقة تصحيح الأخطاء",
                 color = AIElectricCyan,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -209,7 +252,7 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("German Speech Rate", color = PureWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("German Speech Rate / سرعة نطق المعلم", color = PureWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text("${String.format("%.2f", voiceSpeedSlider)}x", color = GermanGold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
 
@@ -242,7 +285,7 @@ fun ProfileScreen(
                     ) {
                         Icon(Icons.Default.VolumeUp, contentDescription = null, tint = GermanGold, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Test German Voice Speed", color = Slate100, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Test German Voice Speed (تجربة سرعة الصوت)", color = Slate100, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -258,7 +301,7 @@ fun ProfileScreen(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, tint = GermanGold)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Retake Adaptive Placement Test", color = GermanGold, fontWeight = FontWeight.Bold)
+                Text("Retake Adaptive Placement Test (إعادة اختبار تحديد المستوى)", color = GermanGold, fontWeight = FontWeight.Bold)
             }
         }
     }

@@ -376,6 +376,81 @@ fun HomeScreen(
             }
         }
 
+        // Zero-Level Basics Quick Starter
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.startZeroBasics()
+                    },
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = Brush.horizontalGradient(
+                        listOf(SuccessEmerald.copy(alpha = 0.8f), GermanGold.copy(alpha = 0.8f))
+                    )
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SuccessEmerald.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🌱", fontSize = 22.sp)
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "A1.1 STARTER PACK",
+                                color = SuccessEmerald,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "من الصفر",
+                                color = GermanGold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Alphabet, Numbers 0-100 & Pronouns",
+                            color = PureWhite,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "الأبجدية، الأرقام المعكوسة، التحيات، ولعبة مطابقة الضمائر.",
+                            color = Slate400,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Start A1.1",
+                        tint = GermanGold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
         // Up Next: Recommended Lesson
         if (nextLesson != null) {
             item {

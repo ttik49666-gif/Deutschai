@@ -9,6 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,9 +29,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Translate
@@ -39,7 +43,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -56,23 +59,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.ArabicTranslationDetail
 import com.example.data.model.ChatMessage
 import com.example.data.model.ConversationMode
+import com.example.data.model.TargetDialect
 import com.example.ui.components.AnimatedAudioWaveform
 import com.example.ui.components.CEFRBadge
-import com.example.ui.components.GlowingCard
 import com.example.ui.theme.AIElectricCyan
 import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.GermanBlack
 import com.example.ui.theme.GermanCrimson
 import com.example.ui.theme.GermanGold
 import com.example.ui.theme.PureWhite
-import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate700
@@ -92,10 +94,12 @@ fun SpeakScreen(
     val isThinking by viewModel.isTutorThinking.collectAsState()
     val activeMode by viewModel.conversationMode.collectAsState()
     val activeScenario by viewModel.activeScenario.collectAsState()
+    val completedMilestones by viewModel.completedMilestones.collectAsState()
     val lastAnalysis by viewModel.lastTutorAnalysis.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val isSpeaking by viewModel.voiceManager.isSpeaking.collectAsState()
     val isListening by viewModel.voiceManager.isListening.collectAsState()
+    val audioRms by viewModel.voiceManager.audioRms.collectAsState()
     val handsFree by viewModel.handsFreeMode.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
@@ -138,143 +142,105 @@ fun SpeakScreen(
                         Text(
                             text = mode.title,
                             color = if (isSelected) GermanBlack else Slate300,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp
                         )
                     }
                 }
             }
         }
 
-        // Active Scenario Banner (if applicable)
+        // Active Scenario & Milestone Progress Header
         if (activeScenario != null) {
-            Box(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Slate850)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = Brush.horizontalGradient(listOf(GermanGold.copy(alpha = 0.5f), AIElectricCyan.copy(alpha = 0.5f)))
+                )
             ) {
-                Column {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(activeScenario!!.iconEmoji, fontSize = 18.sp)
+                            Text(activeScenario!!.iconEmoji, fontSize = 20.sp)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(activeScenario!!.title, color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Column {
+                                Text(
+                                    text = activeScenario!!.title,
+                                    color = PureWhite,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = activeScenario!!.titleAr,
+                                    color = GermanGold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                         CEFRBadge(level = activeScenario!!.cefrLevel)
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("🎯 Goal: ${activeScenario!!.goal}", color = Slate300, fontSize = 12.sp)
 
-                    if (activeScenario!!.suggestedPhrases.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(activeScenario!!.suggestedPhrases) { phrase ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Slate900)
-                                        .clickable { viewModel.sendUserMessage(phrase) }
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Text("💬 $phrase", color = AIElectricCyan, fontSize = 11.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Animated Waveform & Status indicator
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Slate900)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isListening -> ErrorRose
-                                    isSpeaking -> AIElectricCyan
-                                    isThinking -> GermanGold
-                                    else -> SuccessEmerald
-                                }
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = when {
-                            isListening -> "AI is listening to you..."
-                            isThinking -> "AI is preparing feedback..."
-                            isSpeaking -> "AI is speaking (German)..."
-                            else -> "Tutor Ready • ${userProfile?.tutorPersonality?.title ?: "Friendly"}"
-                        },
-                        color = Slate300,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                AnimatedAudioWaveform(
-                    isActive = isListening || isSpeaking || isThinking,
-                    isAiSpeaking = isSpeaking
-                )
-            }
-        }
-
-        // Live Correction Overlay Card
-        AnimatedVisibility(
-            visible = lastAnalysis?.hasCorrection == true && lastAnalysis?.correctedUtterance != null,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            if (lastAnalysis != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Slate900),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = Brush.horizontalGradient(listOf(GermanGold, GermanCrimson))
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("⚡ AI GRAMMAR COACHING", color = GermanGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            IconButton(
-                                onClick = { /* Dismiss */ },
-                                modifier = Modifier.size(20.dp)
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Slate400, modifier = Modifier.size(14.dp))
-                            }
-                        }
+                    if (activeScenario!!.milestones.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("Missionsziele / أهداف السيناريو:", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("Korrektur: \"${lastAnalysis!!.correctedUtterance}\"", color = SuccessEmerald, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        if (lastAnalysis!!.grammarExplanation != null) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(lastAnalysis!!.grammarExplanation!!, color = Slate300, fontSize = 12.sp)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            activeScenario!!.milestones.forEachIndexed { index, milestone ->
+                                val isDone = index in completedMilestones
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                        contentDescription = null,
+                                        tint = if (isDone) SuccessEmerald else Slate700,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = milestone,
+                                        color = if (isDone) SuccessEmerald else Slate300,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isDone) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
                         }
                     }
+                }
+            }
+        }
+
+        // Live Voice Waveform Bar
+        if (isSpeaking || isListening) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Slate900)
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    AnimatedAudioWaveform(
+                        isActive = isSpeaking || isListening,
+                        isAiSpeaking = isSpeaking
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (isListening) "🎙️ Ich höre zu... Sprich jetzt!" else "🔊 DeutschAI spricht...",
+                        color = if (isListening) ErrorRose else GermanGold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -289,7 +255,11 @@ fun SpeakScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(messages) { msg ->
-                MessageBubble(msg = msg, viewModel = viewModel)
+                MessageBubble(
+                    msg = msg,
+                    dialect = userProfile?.targetDialect ?: TargetDialect.MSA,
+                    viewModel = viewModel
+                )
             }
 
             if (isThinking) {
@@ -307,7 +277,7 @@ fun SpeakScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(modifier = Modifier.size(14.dp), color = GermanGold, strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("DeutschAI denkt nach...", color = Slate400, fontSize = 12.sp)
+                                Text("DeutschAI analysiert Grammatik & Satzbau...", color = Slate400, fontSize = 12.sp)
                             }
                         }
                     }
@@ -322,7 +292,7 @@ fun SpeakScreen(
                 .background(Slate900)
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 80.dp)
         ) {
-            // Hands-Free & Quick Mode Row
+            // Hands-Free & Quick Audio Controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -338,7 +308,7 @@ fun SpeakScreen(
                         ),
                         modifier = Modifier.padding(end = 6.dp)
                     )
-                    Text("Hands-Free Mode", color = Slate300, fontSize = 12.sp)
+                    Text("Hands-Free Modus", color = Slate300, fontSize = 12.sp)
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -346,10 +316,13 @@ fun SpeakScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(Slate800)
-                            .clickable { viewModel.speakGermanText(messages.lastOrNull { it.sender == "AI" }?.text ?: "", 0.75f) }
+                            .clickable {
+                                val lastAiMsg = messages.lastOrNull { it.sender == "AI" }?.text ?: ""
+                                viewModel.speakGermanText(lastAiMsg, 0.75f)
+                            }
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text("🐢 Slow 0.7x", color = GermanGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("🐢 Langsam 0.7x", color = GermanGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -363,7 +336,11 @@ fun SpeakScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Giant Push-to-talk Mic Button
-                val micBrush = if (isListening) Brush.linearGradient(listOf(ErrorRose, ErrorRose)) else Brush.linearGradient(listOf(GermanGold, AIElectricCyan))
+                val micBrush = if (isListening) {
+                    Brush.linearGradient(listOf(ErrorRose, ErrorRose))
+                } else {
+                    Brush.linearGradient(listOf(GermanGold, AIElectricCyan))
+                }
                 Box(
                     modifier = Modifier
                         .size(54.dp)
@@ -378,7 +355,7 @@ fun SpeakScreen(
                                         viewModel.sendUserMessage(recognizedText)
                                     },
                                     onError = {
-                                        // On error, let user use typed input
+                                        // If speech recognition is unavailable, user can type
                                     }
                                 )
                             }
@@ -426,13 +403,16 @@ fun SpeakScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MessageBubble(
     msg: ChatMessage,
+    dialect: TargetDialect,
     viewModel: MainViewModel
 ) {
     val isUser = msg.sender == "USER"
     var showTranslation by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -440,7 +420,7 @@ fun MessageBubble(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 300.dp)
+                .widthIn(max = 320.dp)
                 .clip(
                     RoundedCornerShape(
                         topStart = 18.dp,
@@ -452,7 +432,7 @@ fun MessageBubble(
                 .background(if (isUser) Slate800 else Slate850)
                 .border(
                     1.dp,
-                    if (isUser) Slate700 else GermanGold.copy(alpha = 0.2f),
+                    if (isUser) Slate700 else GermanGold.copy(alpha = 0.25f),
                     RoundedCornerShape(
                         topStart = 18.dp,
                         topEnd = 18.dp,
@@ -468,7 +448,7 @@ fun MessageBubble(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isUser) "You" else "DeutschAI",
+                    text = if (isUser) "Du (Alex)" else "DeutschAI Tutor",
                     color = if (isUser) AIElectricCyan else GermanGold,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
@@ -501,28 +481,113 @@ fun MessageBubble(
                 lineHeight = 20.sp
             )
 
-            if (showTranslation && !msg.translation.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
+            // Arabic Translation & Contextual Breakdown
+            if (showTranslation) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Slate900)
+                        .padding(10.dp)
+                ) {
+                    val detail = msg.translationDetail
+                    val mainTrans = detail?.contextualTranslation ?: msg.translation ?: ""
+
+                    Text(
+                        text = "الترجمة السياقية:",
+                        color = GermanGold,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = mainTrans,
+                        color = PureWhite,
+                        fontSize = 13.sp
+                    )
+
+                    if (dialect == TargetDialect.DARIJA && detail?.darijaAlternative != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "بالدارجة المغربية: ${detail.darijaAlternative}",
+                            color = AIElectricCyan,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    if (detail != null && detail.wordByWord.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "تفكيك الكلمات والمفردات:",
+                            color = Slate400,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            detail.wordByWord.forEach { word ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Slate800)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "${word.german} ➜ ${word.arabic}",
+                                        color = Slate300,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (!detail?.grammarNotes.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "💡 ملاحظة نحوية: ${detail?.grammarNotes}",
+                            color = SuccessEmerald,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+
+            // Grammar Feedback Card
+            if (!isUser && (!msg.grammarFeedback.isNullOrBlank() || !msg.grammarFeedbackAr.isNullOrBlank())) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(Slate900)
+                        .border(1.dp, GermanCrimson.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                         .padding(8.dp)
                 ) {
-                    Text(
-                        text = msg.translation,
-                        color = Slate300,
-                        fontSize = 12.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
+                    Column {
+                        Text(
+                            text = "🔍 تصحيح وتوجيه نحوي:",
+                            color = GermanGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (!msg.grammarFeedback.isNullOrBlank()) {
+                            Text(text = msg.grammarFeedback, color = Slate300, fontSize = 11.sp)
+                        }
+                        if (!msg.grammarFeedbackAr.isNullOrBlank()) {
+                            Text(text = msg.grammarFeedbackAr, color = PureWhite, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
 
             if (!isUser && msg.naturalAlternative != null) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "💡 ${msg.naturalAlternative}",
+                    text = "✨ الأسلوب الأكثر عفوية: ${msg.naturalAlternative}",
                     color = AIElectricCyan,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium

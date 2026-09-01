@@ -26,6 +26,11 @@ enum class CorrectionLevel(val title: String, val description: String) {
     DETAILED("Detailed", "Comprehensive post-utterance analysis and natural alternatives.")
 }
 
+enum class TargetDialect(val displayName: String, val description: String, val code: String) {
+    MSA("الفصحى الحديثة (MSA)", "شرح وترجمة بالعربية الفصحى مع التشكيل", "ar_MSA"),
+    DARIJA("الدارجة المغربية (Moroccan Darija)", "شرح وترجمة مبسطة بالدارجة المغربية", "ar_MA")
+}
+
 enum class ConversationMode(val title: String, val icon: String, val description: String) {
     FREE_TALK("Free Talk", "💬", "Open-ended natural conversation about any topic."),
     TEACHER("AI Teacher", "🎓", "Structured tutoring with live grammar and vocabulary drills."),
@@ -50,6 +55,7 @@ data class UserProfile(
     val totalXp: Int = 2850,
     val tutorPersonality: TutorPersonality = TutorPersonality.FRIENDLY,
     val correctionLevel: CorrectionLevel = CorrectionLevel.BALANCED,
+    val targetDialect: TargetDialect = TargetDialect.MSA,
     val voiceSpeed: Float = 1.0f,
     val handsFreeEnabled: Boolean = false,
     val isOnboarded: Boolean = true,
@@ -64,8 +70,11 @@ data class Lesson(
     val cefrLevel: String, // A1, A2, B1, B2, C1
     val moduleNumber: Int,
     val moduleTitle: String,
+    val moduleTitleAr: String = "",
     val lessonTitle: String,
+    val lessonTitleAr: String = "",
     val description: String,
+    val descriptionAr: String = "",
     val skillType: String, // Grammar, Vocabulary, Speaking, Listening, Writing
     val masteryScore: Int = 0, // 0 - 100
     val isUnlocked: Boolean = false,
@@ -81,13 +90,19 @@ data class VocabularyItem(
     val article: String? = null, // "der", "die", "das"
     val plural: String? = null,
     val englishMeaning: String,
+    val arabicMeaning: String = "", // Modern Standard Arabic
+    val darijaMeaning: String = "", // Moroccan Darija
     val cefrLevel: String,
     val exampleDe: String,
     val exampleEn: String,
+    val exampleAr: String = "",
     val masteryScore: Int = 0, // 0 - 100
     val mistakeCount: Int = 0,
     val lastReviewed: Long = System.currentTimeMillis(),
     val nextReview: Long = System.currentTimeMillis(),
+    val repetition: Int = 0,
+    val intervalDays: Int = 1,
+    val easeFactor: Float = 2.5f,
     val category: String = "General"
 )
 
@@ -95,15 +110,22 @@ data class VocabularyItem(
 data class GrammarTopic(
     @PrimaryKey val id: String,
     val title: String,
+    val titleAr: String = "",
     val cefrLevel: String,
     val category: String, // Articles, Cases, Tenses, Word Order, Modal Verbs, Prepositions, etc.
     val explanation: String,
+    val explanationAr: String = "",
     val formulaRule: String,
     val exampleRight: String,
     val exampleWrong: String,
     val whyWrong: String,
+    val whyWrongAr: String = "",
     val masteryScore: Int = 50,
-    val isWeakArea: Boolean = false
+    val isWeakArea: Boolean = false,
+    val repetition: Int = 0,
+    val intervalDays: Int = 1,
+    val easeFactor: Float = 2.5f,
+    val nextReview: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "mistakes")
@@ -112,6 +134,7 @@ data class MistakeItem(
     val userSaid: String,
     val correctVersion: String,
     val explanation: String,
+    val explanationAr: String = "",
     val grammarCategory: String, // e.g., "Perfekt Auxiliary (sein/haben)", "Dativ Case", "Word Order"
     val cefrLevel: String = "A2",
     val timestamp: Long = System.currentTimeMillis(),
@@ -124,16 +147,34 @@ data class MistakeItem(
 data class RoleplayScenario(
     @PrimaryKey val id: String,
     val title: String,
+    val titleAr: String = "",
     val subtitle: String,
+    val subtitleAr: String = "",
     val iconEmoji: String,
     val category: String, // Daily Life, Travel, Career, Bureaucracy, Sports & Hobbies
     val cefrLevel: String,
     val context: String,
     val goal: String,
+    val goalAr: String = "",
     val aiRole: String,
     val userRole: String,
     val initialMessage: String,
-    val suggestedPhrases: List<String> = emptyList()
+    val suggestedPhrases: List<String> = emptyList(),
+    val milestones: List<String> = emptyList()
+)
+
+data class WordMeaning(
+    val german: String,
+    val arabic: String,
+    val pos: String? = null // Nomen, Verb, Adjektiv, etc.
+)
+
+data class ArabicTranslationDetail(
+    val contextualTranslation: String, // المعنى السياقي بالعربية
+    val literalTranslation: String,    // الترجمة الحرفية
+    val wordByWord: List<WordMeaning> = emptyList(), // قائمة الكلمات ومعانيها
+    val grammarNotes: String? = null,  // ملاحظات نحوية
+    val darijaAlternative: String? = null // الدارجة المغربية
 )
 
 @Entity(tableName = "chat_messages")
@@ -143,7 +184,9 @@ data class ChatMessage(
     val sender: String, // "USER" or "AI"
     val text: String,
     val translation: String? = null,
+    val translationDetail: ArabicTranslationDetail? = null,
     val grammarFeedback: String? = null,
+    val grammarFeedbackAr: String? = null,
     val naturalAlternative: String? = null,
     val pronunciationScore: Int? = null,
     val timestamp: Long = System.currentTimeMillis()
@@ -154,6 +197,7 @@ data class PlacementSkillScores(
     val listening: String = "B1",
     val grammar: String = "A2",
     val vocabulary: String = "B1",
+    val reading: String = "B1",
     val writing: String = "A2",
     val pronunciation: String = "A2",
     val estimatedCEFR: String = "A2.2",
@@ -165,17 +209,8 @@ data class ShadowingTask(
     val cefrLevel: String,
     val germanSentence: String,
     val englishMeaning: String,
+    val arabicMeaning: String = "",
     val phoneticTip: String,
+    val phoneticTipAr: String = "",
     val targetAudioSpeed: Float = 0.9f
-)
-
-data class WritingEvaluation(
-    val originalText: String,
-    val correctedText: String,
-    val grammarScore: Int,
-    val vocabularyScore: Int,
-    val coherenceScore: Int,
-    val cefrLevel: String,
-    val feedback: String,
-    val improvedNativeVersion: String
 )
