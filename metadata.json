@@ -1,0 +1,6 @@
+{
+  "name": "DeutschAI",
+  "description": "Ultimate AI German Learning Platform - Learn, Speak & Master German from A1 to C1 with personal AI tutor, adaptive CEFR path, live voice & pronunciation analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

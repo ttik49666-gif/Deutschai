@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Glow Ring -->
+    <path
+        android:pathData="M54,20 A34,34 0 1,0 54,88 A34,34 0 1,0 54,20"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFCC00" />
+
+    <!-- German Flag Micro Accents (Black, Red, Gold) -->
+    <path
+        android:pathData="M40,32 L68,32"
+        android:strokeWidth="3.5"
+        android:strokeColor="#090D16"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M40,37 L68,37"
+        android:strokeWidth="3.5"
+        android:strokeColor="#E11D48"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M40,42 L68,42"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFCC00"
+        android:strokeLineCap="round" />
+
+    <!-- Stylized Modern 'D' & AI Spark Wave -->
+    <path
+        android:pathData="M42,48 L42,76 M42,48 L56,48 C64,48 70,54 70,62 C70,70 64,76 56,76 L42,76"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="42"
+                android:startY="48"
+                android:endX="70"
+                android:endY="76"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE066" />
+                <item android:offset="0.6" android:color="#FFCC00" />
+                <item android:offset="1.0" android:color="#00F0FF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- AI Node Core Spark -->
+    <path
+        android:pathData="M54,62 A3,3 0 1,0 54,62.01"
+        android:strokeWidth="3"
+        android:strokeColor="#00F0FF"
+        android:strokeLineCap="round" />
+</vector>
